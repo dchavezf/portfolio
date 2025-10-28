@@ -43,28 +43,23 @@ set
     price=1
 where to_xr_currency=from_xr_currency;
 
--- Actualizo tipos de cambio de USD a MXN y UDI
--- Importo Tipos de Cambio
-CREATE OR REPLACE TABLE XRates AS 
-SELECT * FROM 'data/exchange/xrates.parquet';
-
 -- PAR UDI/MXN
-UPDATE xr_transactions
+UPDATE xr_transactions t
 SET 
     xr_mxn = b.price
-FROM XRates b
+FROM XR_Prices b
 WHERE 
-    DATE(xr_transactions.datetime) = b.target_time
+    CAST(DATE(t.datetime) AS TIMESTAMPTZ) = CAST(DATE(b.target_time) AS TIMESTAMPTZ)
     and b.to_currency='MXN'
     and b.from_currency='USD'
 and b.price>0;
 -- PAR UDI/MXN
-UPDATE xr_transactions
+UPDATE xr_transactions t
 SET 
     xr_udi = b.price
-FROM XRates b
+FROM XR_Prices b
 WHERE 
-    DATE(xr_transactions.datetime) = b.target_time
+    CAST(DATE(t.datetime) AS TIMESTAMPTZ) = CAST(DATE(b.target_time) AS TIMESTAMPTZ)
     and b.to_currency='MXN'
     and b.from_currency='UDI'
 and b.price>0;
@@ -87,7 +82,7 @@ set
 where 
     xr_usd is null and 
     from_xr_currency='usd' and 
-    COALESCE(price)>0;
+    COALESCE(price,0)>0;
 
 -- Si el from es MXN y el to es USD, actualizo el tipo de cambio de 1/xr_mxn a xr_usd
 update  xr_transactions
@@ -97,7 +92,7 @@ set
 where 
     xr_usd is null and 
     from_xr_currency='mxn' and 
-    COALESCE(xr_mxn)>0
+    COALESCE(xr_mxn,0)>0
 ;
 
 -- Este es el caso inverso
@@ -108,7 +103,7 @@ set
 where 
     xr_usd is null and 
     to_xr_currency='mxn' and 
-    COALESCE(price)>0 AND
-    COALESCE(xr_mxn)>0
+    COALESCE(price,0)>0 AND
+    COALESCE(xr_mxn,0)>0
     ;
 

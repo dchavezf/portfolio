@@ -5,7 +5,7 @@ import json
 #=========================================================================
 # Helpers
 #=========================================================================
-DEBUG=True
+
 import zipfile
 import os
 import time
@@ -24,12 +24,12 @@ class DateTimeEncoder(json.JSONEncoder):
             return obj.isoformat()
         return super(DateTimeEncoder, self).default(obj)
 
-def log(process, s, debug=DEBUG):
+def log(process, s, debug=True):
     if isinstance(s, (dict, list)):
         # Use the custom encoder with json.dumps
         s = json.dumps(s, indent=4, cls=DateTimeEncoder)
     
-    if DEBUG:
+    if debug:
         print(f"[{process}] {datetime.now()} -  {s}")
     
 def to_timestamp(val):
@@ -103,6 +103,13 @@ def floor_datetime(dt: datetime, floor_unit: str, delta: int) -> datetime:
         
     # 2. Sumar el timedelta (solo para minute, hour, day)
     return floored_dt + calculated_timedelta
+
+def datetime_utc(target_time: datetime):
+    if target_time.tzinfo is None:
+        target_time=pd.to_datetime(target_time.tz_localize('UTC'), errors='coerce')
+    else:
+        target_time=pd.to_datetime(target_time, errors='coerce')
+    return target_time
 
 def str_to_datetime(date_str: str) -> datetime:
     date_str=date_str.replace('Z', '+0000')

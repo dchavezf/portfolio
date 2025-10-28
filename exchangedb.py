@@ -1,8 +1,8 @@
 from dbclass import DbClass
 import pandas as pd
 from datetime import datetime
-import os
-from helper import to_timestamp, cast_candle, compress
+
+from helper import to_timestamp, cast_candle, compress, datetime_utc
 
 #==============================================================================================================
 class ExchangeDb:
@@ -73,7 +73,7 @@ class ExchangeDb:
             return result.to_dict('records')[0]
         return None
 
-    def add_xrate_row(self, target_time, candle):
+    def add_xrate_row(self,  from_currency, to_currency,target_time, candle):
         """
         Adds a new exchange rate to the XR_Prices table.
         """
@@ -82,12 +82,10 @@ class ExchangeDb:
             abs(to_timestamp(candle["time_period_end"]) - to_timestamp(target_time))
         )
 
-        bucket=self.find_bucket(candle["xr_bucket_id"])
-
         price_obj = {
-            "to_currency": bucket["to_currency"],
-            "from_currency": bucket["from_currency"],
-            "target_time": pd.to_datetime(target_time, errors='coerce'),
+            "to_currency": to_currency,
+            "from_currency": from_currency,
+            "target_time": datetime_utc(target_time),
             "price": candle["price"],
             "delta": float(delta),
             "xr_candle_id": candle.get("xr_candle_id")
@@ -110,10 +108,7 @@ class ExchangeDb:
         from_currency = first_row["from_currency"]
         period_id = first_row["period_id"]
 
-
-
-        bucket = self._get_or_create_bucket(to_currency, from_currency, period_id, dt_bucket_time)
-        bucket_id=bucket["xr_bucket_id"]
+        bucket_id = self._get_or_create_bucket(to_currency, from_currency, period_id, dt_bucket_time)
 
         processed_rows = []
         for row_data in new_rows:
@@ -150,25 +145,28 @@ class ExchangeDb:
         """
         result = self.db.fetch_dataframe(sql)
         if not result.empty:
-            return result.to_dict('records')[0]['xr_bucket_id']
+            first_row = result.iloc[0].to_dict()['xr_bucket_id']
+            return first_row
+
+        if period_id == '1DAY':
+            size_bucket = pd.Timestamp(dt_bucket).days_in_month
+        elif period_id == '1HOUR':
+            size_bucket = 24
         else:
-            if period_id == '1DAY':
-                size_bucket = pd.Timestamp(dt_bucket).days_in_month
-            elif period_id == '1HOUR':
-                size_bucket = 24
-            else:
-                size_bucket = 60
-            bucket_df = pd.DataFrame([{
-                "to_currency": to_currency,
-                "from_currency": from_currency,
-                "period_id": period_id,
-                "dt_bucket": dt_bucket,
-                "size_bucket": size_bucket
-            }])
-            self.db.insert_dataframe(bucket_df, "XR_Buckets")
-            # Retrieve the id of the inserted row
-            result = self.db.fetch_dataframe(sql)
-            return result.to_dict('records')[0]
+            size_bucket = 60
+        bucket_df = pd.DataFrame([{
+            "to_currency": to_currency,
+            "from_currency": from_currency,
+            "period_id": period_id,
+            "dt_bucket": datetime_utc(dt_bucket),
+            "size_bucket": size_bucket
+        }])
+        self.db.insert_dataframe(bucket_df, "XR_Buckets")
+        # Retrieve the id of the inserted row
+        result = self.db.fetch_dataframe(sql)
+        first_row = result.iloc[0].to_dict()['xr_bucket_id']
+
+        return first_row
     
     def save(self):
         # Exporta XR_prices a archivo parquet
@@ -190,5 +188,5 @@ class ExchangeDb:
                 on  c.xr_bucket_id = b.xr_bucket_id
             ) TO 'data/exchange/XR_Candles.parquet' (FORMAT PARQUET);
         """
-        self.db.execute_script(sql)
+        self.db.execute_sql(sql)
         compress('data/exchange/XR_Candles.parquet')
