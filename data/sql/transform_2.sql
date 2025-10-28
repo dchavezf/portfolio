@@ -1,20 +1,17 @@
--- Importo Tipos de Cambio
-CREATE OR REPLACE TABLE XRates AS 
-SELECT * FROM 'data/exchange/xrates.parquet';
 
 -- Actualizo los tipos de cambios directamente de los pares de la tabla de conversion
 UPDATE xr_transactions
 SET 
     xr_usd = c.price,
-    trn_update_id=100
-FROM XRates AS c
+    trn_update_id=101
+FROM XR_Prices AS c
 WHERE 
-    xr_transactions.datetime = c.target_time
-    AND xr_transactions.from_xr_currency = c.from_currency
-    AND xr_transactions.to_xr_currency = c.to_currency 
-    AND xr_transactions.xr_usd IS NULL
+    c.target_time = xr_transactions.datetime 
+    AND  c.from_currency =xr_transactions.currency 
+    AND c.to_currency = 'USD' 
+    AND COALESCE(xr_transactions.xr_usd,0)<=0
     AND COALESCE(c.price, 0) > 0;
-
+    
 -- Actualiza montos
 UPDATE xr_transactions
 SET 

@@ -61,18 +61,14 @@ try:
 
     sql= """
         SELECT DISTINCT 
-            datetime AS datetime,
+            t.datetime AS datetime,
             'USD' AS to_currency,
-            upper(currency) AS from_currency
-        FROM xr_transactions
-        WHERE 
-            COALESCE(t.xr_usd,0) <=0
-        UNION
-        SELECT DISTINCT 
-            cast(CURRENT_DATE as timestamp) AS datetime,
-            'USD' AS to_currency,
-            upper(currency) AS from_currency
-        FROM xr_transactions_view
+            currency AS from_currency,
+            t.xr_usd
+        FROM xr_transactions t 
+        WHERE
+            COALESCE(xr_usd,0) <=0
+        ORDER BY from_currency, datetime
         ;
     """
     coinapi.update_in_batch(sql)
