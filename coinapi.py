@@ -17,14 +17,13 @@ class CoinAPI(Exchange):
             'Authorization': self.api_key
         }
         
-        self.exchange="BITSO"
         # Orden de preferencia de exchanges
         self.exchanges = {
             "BITSO":"USD",
             "BINANCE": "USDT",
             "COINBASE": "USDT"
         }
-        self.to_currency=self.exchanges[self.exchange]
+        self.to_currency="USD"
         self.periods=["1SEC", "1MIN", "1HRS", "1DAY"]
         
 
@@ -48,7 +47,7 @@ class CoinAPI(Exchange):
         resultados = []
         for d in data:
             c = set_candle(
-                        to_currency,
+                        self.to_currency,
                         from_currency,
                         period_id,
                         d["time_period_start"],

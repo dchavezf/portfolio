@@ -10,6 +10,9 @@ try:
     path="data/sql"
     log("main","Creando tablas")
     db.execute_script(f"{path}/schema.sql")
+    
+    log("main","Datacleansing")
+    db.execute_script(f"{path}/datacleansing.sql")    
 
     log("main","Cargando tablas")
     db.execute_script(f"{path}/load.sql")
@@ -63,12 +66,16 @@ try:
         SELECT DISTINCT 
             t.datetime AS datetime,
             'USD' AS to_currency,
-            currency AS from_currency,
-            t.xr_usd
+            currency AS from_currency
         FROM xr_transactions t 
         WHERE
             COALESCE(xr_usd,0) <=0
-        ORDER BY from_currency, datetime
+        UNION
+        SELECT DISTINCT 
+            CAST(DATE(CURRENT_DATE) AS TIMESTAMPTZ) AS datetime,
+            'USD' AS to_currency,
+            from_xr_currency AS from_currency
+        FROM xr_transactions t 
         ;
     """
     coinapi.update_in_batch(sql)
@@ -77,3 +84,9 @@ try:
 except Exception as e:
     log("main",f"Error: {e}",True)
 log("main","Listo")
+"""
+TODO
+
+- generacion de archivo de salida
+- integracion de carga de archivos
+"""

@@ -88,32 +88,6 @@ CREATE OR REPLACE TABLE xr_transactions (
     trn_update_id       INTEGER 
 );
 
-CREATE OR REPLACE TABLE transactions (
-    datetime            TIMESTAMPTZ,
-    timestamp           BIGINT,
-    transaction_type    VARCHAR,
-    method              VARCHAR,
-    id                  INTEGER,
-    portfolio           VARCHAR,
-    currency            VARCHAR,
-    net_amount          DECIMAL(38,8),
-    usd_value           DECIMAL(20,4),
-    mxn_value           DECIMAL(20,4),
-    udi_value           DECIMAL(20,4)
-);
-
-CREATE OR REPLACE TABLE XRates (
-    to_currency         VARCHAR,
-    from_currency       VARCHAR,
-    datetime            TIMESTAMPTZ,
-    timestamp           BIGINT,
-    period_id           VARCHAR,
-    target_time         VARCHAR, -- Mantener como VARCHAR ya que se almacena como string
-    delta               INTEGER,
-    exchange            VARCHAR,
-    price               DECIMAL(20,8)
-);
-
 CREATE OR REPLACE VIEW xr_transactions_view AS
     SELECT  
         TO_TIMESTAMP(timestamp) AS datetime,
@@ -313,3 +287,35 @@ CREATE OR REPLACE VIEW xr_transactions_view AS
         NULL as trn_update_id
     FROM withdrawal;
 -- TERMINA CREACION DE VIEW xr_transactions_view
+
+CREATE OR REPLACE VIEW xr_transactions_valuated_view AS
+    select 
+        t.datetime,
+        t.transaction_type,
+        t.method,
+        p.currency,
+        t.net_amount,
+        t.usd_value,
+        t.mxn_value,
+        t.udi_value,
+        cast(
+            cast(t.net_amount as double)*
+            cast(p.xr_usd  as double) 
+        as DECIMAL(20,8)) as current_usd,
+        cast(
+            cast(t.net_amount as double)*
+            cast(p.xr_usd  as double)*
+            cast(p.xr_mxn as double) 
+        as DECIMAL(20,8)) as current_mxn,
+        cast(
+            cast(t.net_amount as double)*
+            cast(p.xr_usd  as double)*
+            cast(p.xr_mxn as double)/
+            cast(p.xr_udi as double) 
+        as DECIMAL(20,8)) as current_udi,
+        p.*
+    from xr_transactions t
+    left join xr_current p ON
+    t.from_xr_currency=p.currency 
+;
+-- TERMINA CREACION DE VIEW xr_transactions_valuated_view

@@ -19,7 +19,7 @@ class Banxico(Exchange):
             'Accept': 'application/json'
         }
         
-        self.exchange="BANXICO"
+        self.exchanges= {"BANXICO":"MXN"}
         # Orden de preferencia de exchanges
         self.series={
             "UDI" : "SP68257",

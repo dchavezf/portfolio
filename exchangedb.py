@@ -128,7 +128,21 @@ class ExchangeDb:
         return candles
 
     def _lastupdate(self):
-        pass
+        """
+        Genera una cadena de fecha que representa el primer día del mes actual 
+        a medianoche (00:00:00.000) en formato ISO 8601 (YYYY-MM-DDT00:00:00.000Z).
+        """
+        now = datetime.now()
+        today = datetime(now.year, now.month, now.day, 0, 0, 0, 0)
+        first_day = datetime(now.year, now.month, 1, 0, 0, 0, 0)
+        period_id=["1SEC", "1MIN", "1HRS", "1DAY"]
+        lastdate=[today, today, today, first_day]
+        
+        # Construye un df con las columnas period_id y datetime
+        df = pd.DataFrame({'period_id': period_id, 'datetime':lastdate})
+        self.db.execute_sql("DELETE FROM XR_LastPeriods")
+        self.db.insert_dataframe(df, "XR_LastPeriods")
+
 
     def _get_or_create_bucket(self, to_currency, from_currency, period_id, dt_bucket):
         """
@@ -169,6 +183,7 @@ class ExchangeDb:
         return first_row
     
     def save(self):
+        self._lastupdate()
         # Exporta XR_prices a archivo parquet
         sql="""
             COPY  (    

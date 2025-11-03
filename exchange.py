@@ -12,7 +12,6 @@ class Exchange:
         self.base_url=""
         self.headers = {}
         self.timeout = 30 # segundos
-        self.exchange=""
         self.to_currency=""
         self.periods=[]
         self.exchangedb=ExchangeDb(db)
@@ -49,17 +48,18 @@ class Exchange:
             return price
         
         for period_id in self.periods : 
-            if price:
-                return price
-            candle = self.get_candle(from_currency, self.to_currency, target_time, period_id, self.exchange)
-            if candle:
-                price=self.exchangedb.add_xrate_row(                    
-                    from_currency,
-                    self.to_currency,
-                    target_time,
-                    candle
-                )
-                return price
+            
+            for exchange in self.exchanges:
+                to_currency=self.exchanges[exchange]
+                candle = self.get_candle(from_currency, to_currency, target_time, period_id, exchange)
+                if candle:
+                    price=self.exchangedb.add_xrate_row(                    
+                        from_currency,
+                        self.to_currency,
+                        target_time,
+                        candle
+                    )
+                    return price
         return None
     
     def get_candle(self, from_currency, to_currency, target_time, period_id, exchange, pair_type="SPOT"):     
@@ -134,7 +134,10 @@ class Exchange:
                         candle["pair_type"]
                     )
                     self.exchangedb.add_history_rows(start_time, [c])
-                    return c          
+                    return c  
+            log("get_candle", f"Es la ultima vela y no la encuentra",self._debug)
+            if idx==max_candles-1:
+                return candle       
         return None
     
     def get_values(self, from_currency, to_currency, empty_dates):

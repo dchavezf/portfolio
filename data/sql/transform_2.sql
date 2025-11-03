@@ -46,3 +46,44 @@ WHERE
     t.method=xr_transactions.method and 
     t."timestamp"=xr_transactions."timestamp" 
 ;
+
+-- Calculo de valor al tipo de cambio actual
+CREATE OR REPLACE TABLE xr_current (
+    currency            VARCHAR,
+    xr_usd              DECIMAL(20,8),
+    xr_mxn              DECIMAL(20,8),
+    xr_udi              DECIMAL(20,8)
+);
+
+insert INTO xr_current
+select distinct from_xr_currency, null, null, null
+from xr_transactions t
+;
+
+update xr_current t
+set xr_usd=p.price
+from "XR_Prices" p
+where 
+    p.to_currency='USD' and 
+    p.from_currency=t.currency AND
+    p.target_time=CAST(DATE(CURRENT_DATE) AS TIMESTAMPTZ);
+
+UPDATE xr_current
+set  xr_usd=1
+where currency='USD';
+
+update xr_current t
+set xr_mxn=xr_usd*p.price
+from "XR_Prices" p
+where 
+    p.to_currency='MXN' and 
+    p.from_currency='USD' and
+    p.target_time=CAST(DATE(CURRENT_DATE) AS TIMESTAMPTZ);
+
+update xr_current t
+set xr_udi=xr_mxn*p.price
+from "XR_Prices" p
+where 
+    p.to_currency='MXN' and 
+    p.from_currency='UDI' and
+    p.target_time=CAST(DATE(CURRENT_DATE) AS TIMESTAMPTZ);
