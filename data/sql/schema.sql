@@ -288,34 +288,90 @@ CREATE OR REPLACE VIEW xr_transactions_view AS
     FROM withdrawal;
 -- TERMINA CREACION DE VIEW xr_transactions_view
 
+create or REPLACE view xr_current_valuated_view as
+    with xr as (
+        select sum(case when currency='USD' then xr_mxn else 0 end) as xr_usd, 
+            sum(case when currency='MXN' then 1/xr_udi else 0 end) as xr_udi
+        from xr_current
+    )
+    select xr_usd, xr_udi, xr_udi/xr_usd as xr_udi_to_usd  from xr
+;
+
 CREATE OR REPLACE VIEW xr_transactions_valuated_view AS
-    select 
+    select         
+        t.portfolio,
+        ROW_NUMBER() OVER (
+            PARTITION BY t.portfolio
+            ORDER BY t.datetime, t.id
+        ) AS portfolio_id,
         t.datetime,
         t.transaction_type,
         t.method,
-        p.currency,
+        t.currency,
+        t.from_xr_currency,
         t.net_amount,
+        -- usd value at time of transaction
         t.usd_value,
-        t.mxn_value,
-        t.udi_value,
         cast(
             cast(t.net_amount as double)*
             cast(p.xr_usd  as double) 
         as DECIMAL(20,8)) as current_usd,
+        t.udi_value * x.xr_udi_to_usd as present_usd ,
         cast(
             cast(t.net_amount as double)*
-            cast(p.xr_usd  as double)*
+            cast(p.xr_usd  as double) 
+        as DECIMAL(20,8)) - (t.udi_value * x.xr_udi_to_usd) as pl_usd,
+
+        -- mxn value at time of transaction
+        t.mxn_value,
+        cast(
+            cast(t.net_amount as double)*
             cast(p.xr_mxn as double) 
         as DECIMAL(20,8)) as current_mxn,
+        t.udi_value * x.xr_udi as present_mxn,
         cast(
             cast(t.net_amount as double)*
-            cast(p.xr_usd  as double)*
-            cast(p.xr_mxn as double)/
+            cast(p.xr_mxn as double) 
+        as DECIMAL(20,8)) - (t.udi_value * x.xr_udi) as pl_mxn ,
+
+        -- udi value at time of transaction        
+        t.udi_value,
+        t.udi_value as present_udi,
+        cast(
+            cast(t.net_amount as double)*
             cast(p.xr_udi as double) 
         as DECIMAL(20,8)) as current_udi,
-        p.*
+
+        cast(
+            cast(t.net_amount as double)*
+            cast(p.xr_udi as double) 
+        as DECIMAL(20,8)) - t.udi_value as pl_udi   
     from xr_transactions t
     left join xr_current p ON
     t.from_xr_currency=p.currency 
+    , xr_current_valuated_view x
 ;
--- TERMINA CREACION DE VIEW xr_transactions_valuated_view
+
+CREATE OR REPLACE VIEW profit_analysis_view AS
+    select 
+        t.portfolio as portfolio,
+        t.from_xr_currency as currency,
+        sum(t.net_amount) as net_amount,
+
+        sum(t.current_usd) as current_usd,
+        sum(t.present_usd) as present_usd,
+        sum(t.pl_usd) as pl_usd,
+
+        sum(t.current_mxn) as current_mxn,
+        sum(t.present_mxn) as present_mxn, 
+        sum(t.pl_mxn) as pl_mxn,
+ 
+        sum(T.current_udi) as current_udi,
+        sum(t.present_udi) as present_udi,
+        sum(t.pl_udi) as pl_udi
+    from xr_transactions_valuated_view t
+    group by 
+        t.portfolio, 
+        t.from_xr_currency
+    order by 
+        sum(t.pl_usd)  desc

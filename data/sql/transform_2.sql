@@ -44,7 +44,8 @@ WHERE
     --t.timestamp=xr_transactions.timestamp and 
     t.transaction_type=xr_transactions.transaction_type and 
     t.method=xr_transactions.method and 
-    t."timestamp"=xr_transactions."timestamp" 
+    upper(t.currency)=upper(xr_transactions.currency) and 
+    t.datetime=xr_transactions.datetime 
 ;
 
 -- Calculo de valor al tipo de cambio actual
@@ -73,15 +74,19 @@ set  xr_usd=1
 where currency='USD';
 
 update xr_current t
-set xr_mxn=xr_usd*p.price
+set xr_mxn=p.price*t.xr_usd
 from "XR_Prices" p
 where 
     p.to_currency='MXN' and 
     p.from_currency='USD' and
     p.target_time=CAST(DATE(CURRENT_DATE) AS TIMESTAMPTZ);
 
+UPDATE xr_current
+set  xr_mxn=1
+where currency='MXN';
+
 update xr_current t
-set xr_udi=xr_mxn*p.price
+set xr_udi=xr_mxn/p.price
 from "XR_Prices" p
 where 
     p.to_currency='MXN' and 
